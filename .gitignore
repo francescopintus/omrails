@@ -20,3 +20,11 @@ doc/
 .DS_Store
 .idea
 
+ytt-backend/.env
+ytt-backend/__pycache__/
+ytt-backend/core/__pycache__/
+ytt-backend/models/__pycache__/
+ytt-backend/routers/__pycache__/
+ytt-backend/schemas/__pycache__/
+ytt-frontend/node_modules/
+ytt-frontend/dist/
