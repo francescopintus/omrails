@@ -26,6 +26,18 @@ class TerritoryIn(BaseModel):
     tags: Optional[str] = None
     cover_image_url: Optional[str] = None
 
+class TerritoryUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    lat_center: Optional[float] = None
+    lng_center: Optional[float] = None
+    zoom_level: Optional[int] = None
+    level: Optional[int] = None
+    tags: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    is_published: Optional[bool] = None
+    is_featured: Optional[bool] = None
+
 class TerritoryOut(BaseOut):
     id: str; title: str; slug: str; description: Optional[str]
     lat_center: Optional[float]; lng_center: Optional[float]
@@ -61,6 +73,21 @@ def create_territory(data: TerritoryIn, db: Session = Depends(get_db), current_u
         t.parent_id = uuid.UUID(data.parent_id)
     db.add(t); db.commit(); db.refresh(t)
     return t
+
+@router.put("/{slug}", response_model=TerritoryOut)
+def update_territory(slug: str, data: TerritoryUpdate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    t = db.query(Territory).filter(Territory.slug == slug).first()
+    if not t: raise HTTPException(status_code=404, detail="Not found")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(t, k, v)
+    db.commit(); db.refresh(t)
+    return t
+
+@router.delete("/{slug}", status_code=204)
+def delete_territory(slug: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    t = db.query(Territory).filter(Territory.slug == slug).first()
+    if not t: raise HTTPException(status_code=404, detail="Not found")
+    db.delete(t); db.commit()
 
 @router.patch("/{slug}/publish")
 def publish_territory(slug: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):

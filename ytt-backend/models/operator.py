@@ -38,7 +38,7 @@ class Operator(Base):
     territory = relationship("Territory", back_populates="operators")
     experiences = relationship("Experience", back_populates="operator")
     stories = relationship("Story", secondary=operator_story, back_populates="operators")
-    trip_books = relationship("TripBook", secondary=operator_tripbook, back_populates="trip_books")
+    trip_books = relationship("TripBook", secondary=operator_tripbook, back_populates="operators")
     inquiries = relationship("Inquiry", back_populates="target_operator")
 
 class Experience(Base):

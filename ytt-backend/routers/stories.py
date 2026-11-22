@@ -21,6 +21,12 @@ class StoryIn(BaseModel):
     territory_id: Optional[str] = None; tags: Optional[str] = None
     cover_image_url: Optional[str] = None
 
+class StoryUpdate(BaseModel):
+    title: Optional[str] = None; excerpt: Optional[str] = None
+    body: Optional[str] = None; territory_id: Optional[str] = None
+    tags: Optional[str] = None; cover_image_url: Optional[str] = None
+    is_featured: Optional[bool] = None; status: Optional[str] = None
+
 class StoryOut(BaseOut):
     id: str; title: str; slug: str; excerpt: Optional[str]; body: Optional[str]
     tags: Optional[str]; cover_image_url: Optional[str]; status: str
@@ -51,6 +57,30 @@ def create_story(data: StoryIn, db: Session = Depends(get_db), current_user=Depe
     if data.territory_id: s.territory_id = uuid.UUID(data.territory_id)
     db.add(s); db.commit(); db.refresh(s)
     return s
+
+@router.put("/{slug}", response_model=StoryOut)
+def update_story(slug: str, data: StoryUpdate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    s = db.query(Story).filter(Story.slug == slug).first()
+    if not s: raise HTTPException(status_code=404, detail="Not found")
+    updates = data.model_dump(exclude_unset=True)
+    if "territory_id" in updates:
+        tid = updates.pop("territory_id")
+        s.territory_id = uuid.UUID(tid) if tid else None
+    if "status" in updates:
+        new_status = StoryStatus(updates.pop("status"))
+        if new_status == StoryStatus.published and s.status != StoryStatus.published:
+            s.published_at = datetime.utcnow()
+        s.status = new_status
+    for k, v in updates.items():
+        setattr(s, k, v)
+    db.commit(); db.refresh(s)
+    return s
+
+@router.delete("/{slug}", status_code=204)
+def delete_story(slug: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    s = db.query(Story).filter(Story.slug == slug).first()
+    if not s: raise HTTPException(status_code=404, detail="Not found")
+    db.delete(s); db.commit()
 
 @router.patch("/{slug}/publish")
 def publish_story(slug: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):

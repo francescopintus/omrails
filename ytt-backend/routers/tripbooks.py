@@ -20,6 +20,11 @@ class TripBookIn(BaseModel):
     title: str; description: Optional[str] = None; cover_image_url: Optional[str] = None
     visibility: TripBookVisibility = TripBookVisibility.private; tags: Optional[str] = None
 
+class TripBookUpdate(BaseModel):
+    title: Optional[str] = None; description: Optional[str] = None
+    cover_image_url: Optional[str] = None; visibility: Optional[str] = None
+    tags: Optional[str] = None; is_featured: Optional[bool] = None
+
 class BlockIn(BaseModel):
     block_type: str; position: str = "0"; content: Optional[str] = None
     linked_place_id: Optional[str] = None; linked_operator_id: Optional[str] = None
@@ -36,6 +41,10 @@ class TripBookOut(BaseOut):
 @router.get("/", response_model=List[TripBookOut])
 def list_tripbooks(db: Session = Depends(get_db), current_user=Depends(get_current_user_optional)):
     return db.query(TripBook).filter(TripBook.visibility == TripBookVisibility.public).order_by(TripBook.created_at.desc()).all()
+
+@router.get("/all", response_model=List[TripBookOut])
+def list_all_tripbooks(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    return db.query(TripBook).order_by(TripBook.created_at.desc()).all()
 
 @router.get("/my", response_model=List[TripBookOut])
 def my_tripbooks(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
@@ -59,6 +68,45 @@ def create_tripbook(data: TripBookIn, db: Session = Depends(get_db), current_use
     tb = TripBook(**data.model_dump(), slug=slug, owner_id=current_user.id)
     db.add(tb); db.commit(); db.refresh(tb)
     return tb
+
+@router.put("/{slug}", response_model=TripBookOut)
+def update_tripbook(slug: str, data: TripBookUpdate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    tb = db.query(TripBook).filter(TripBook.slug == slug).first()
+    if not tb: raise HTTPException(status_code=404, detail="Not found")
+    updates = data.model_dump(exclude_unset=True)
+    if "visibility" in updates:
+        new_vis = TripBookVisibility(updates.pop("visibility"))
+        if new_vis == TripBookVisibility.public and tb.visibility != TripBookVisibility.public:
+            tb.published_at = datetime.utcnow()
+        tb.visibility = new_vis
+    for k, v in updates.items():
+        setattr(tb, k, v)
+    db.commit(); db.refresh(tb)
+    return tb
+
+@router.delete("/{slug}", status_code=204)
+def delete_tripbook(slug: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    tb = db.query(TripBook).filter(TripBook.slug == slug).first()
+    if not tb: raise HTTPException(status_code=404, detail="Not found")
+    db.delete(tb); db.commit()
+
+@router.post("/{slug}/blocks", response_model=BlockOut)
+def add_block(slug: str, data: BlockIn, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    tb = db.query(TripBook).filter(TripBook.slug == slug, TripBook.owner_id == current_user.id).first()
+    if not tb: raise HTTPException(status_code=404, detail="Not found")
+    block = TripBookBlock(trip_book_id=tb.id, **data.model_dump(exclude={"linked_place_id","linked_operator_id"}))
+    if data.linked_place_id: block.linked_place_id = uuid.UUID(data.linked_place_id)
+    if data.linked_operator_id: block.linked_operator_id = uuid.UUID(data.linked_operator_id)
+    db.add(block); db.commit(); db.refresh(block)
+    return block
+
+@router.delete("/{slug}/blocks/{block_id}", status_code=204)
+def delete_block(slug: str, block_id: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    tb = db.query(TripBook).filter(TripBook.slug == slug, TripBook.owner_id == current_user.id).first()
+    if not tb: raise HTTPException(status_code=404, detail="Not found")
+    block = db.query(TripBookBlock).filter(TripBookBlock.id == uuid.UUID(block_id), TripBookBlock.trip_book_id == tb.id).first()
+    if not block: raise HTTPException(status_code=404, detail="Block not found")
+    db.delete(block); db.commit()
 
 @router.patch("/{slug}/publish")
 def publish_tripbook(slug: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):

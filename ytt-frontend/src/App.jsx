@@ -7,6 +7,13 @@ import Stories from './pages/Stories'
 import TripBooks from './pages/TripBooks'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import AdminLayout from './pages/admin/AdminLayout'
+import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminTerritories from './pages/admin/AdminTerritories'
+import AdminPlaces from './pages/admin/AdminPlaces'
+import AdminStories from './pages/admin/AdminStories'
+import AdminOperators from './pages/admin/AdminOperators'
+import AdminTripBooks from './pages/admin/AdminTripBooks'
 
 function Navbar() {
   const navigate = useNavigate()
@@ -27,6 +34,7 @@ function Navbar() {
         <Link to="/tripbooks">Trip Book</Link>
         {token ? (
           <>
+            <Link to="/admin" style={{color:'#e8c547',fontWeight:700}}>Admin</Link>
             <span style={{color:'#e8c547',fontSize:'0.85rem'}}>Ciao, {name}</span>
             <button onClick={logout} className="btn btn-outline btn-sm">Esci</button>
           </>
@@ -53,6 +61,14 @@ export default function App() {
         <Route path="/tripbooks" element={<TripBooks />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="territories" element={<AdminTerritories />} />
+          <Route path="places" element={<AdminPlaces />} />
+          <Route path="stories" element={<AdminStories />} />
+          <Route path="operators" element={<AdminOperators />} />
+          <Route path="tripbooks" element={<AdminTripBooks />} />
+        </Route>
       </Routes>
     </>
   )

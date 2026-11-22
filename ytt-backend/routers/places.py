@@ -21,22 +21,32 @@ class PlaceIn(BaseModel):
     address: Optional[str] = None; territory_id: Optional[str] = None
     tags: Optional[str] = None; cover_image_url: Optional[str] = None
 
+class PlaceUpdate(BaseModel):
+    name: Optional[str] = None; place_type: Optional[str] = None
+    description: Optional[str] = None; lat: Optional[float] = None
+    lng: Optional[float] = None; address: Optional[str] = None
+    territory_id: Optional[str] = None; tags: Optional[str] = None
+    cover_image_url: Optional[str] = None; is_published: Optional[bool] = None
+
 class PlaceOut(BaseOut):
     id: str; name: str; slug: str; place_type: Optional[str]
     description: Optional[str]; lat: Optional[float]; lng: Optional[float]
     address: Optional[str]; tags: Optional[str]; cover_image_url: Optional[str]; is_published: bool
 
 @router.get("/", response_model=List[PlaceOut])
-def list_places(territory_id: Optional[str] = None, place_type: Optional[str] = None, db: Session = Depends(get_db)):
-    q = db.query(Place).filter(Place.is_published == True)
+def list_places(territory_id: Optional[str] = None, place_type: Optional[str] = None, db: Session = Depends(get_db), current_user=Depends(get_current_user_optional)):
+    q = db.query(Place)
+    if not current_user:
+        q = q.filter(Place.is_published == True)
     if territory_id: q = q.filter(Place.territory_id == uuid.UUID(territory_id))
     if place_type: q = q.filter(Place.place_type == place_type)
     return q.order_by(Place.name).all()
 
 @router.get("/{slug}", response_model=PlaceOut)
-def get_place(slug: str, db: Session = Depends(get_db)):
-    p = db.query(Place).filter(Place.slug == slug, Place.is_published == True).first()
-    if not p: raise HTTPException(status_code=404, detail="Place not found")
+def get_place(slug: str, db: Session = Depends(get_db), current_user=Depends(get_current_user_optional)):
+    p = db.query(Place).filter(Place.slug == slug).first()
+    if not p or (not p.is_published and not current_user):
+        raise HTTPException(status_code=404, detail="Place not found")
     return p
 
 @router.post("/", response_model=PlaceOut)
@@ -49,3 +59,22 @@ def create_place(data: PlaceIn, db: Session = Depends(get_db), current_user=Depe
     if data.territory_id: p.territory_id = uuid.UUID(data.territory_id)
     db.add(p); db.commit(); db.refresh(p)
     return p
+
+@router.put("/{slug}", response_model=PlaceOut)
+def update_place(slug: str, data: PlaceUpdate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    p = db.query(Place).filter(Place.slug == slug).first()
+    if not p: raise HTTPException(status_code=404, detail="Not found")
+    updates = data.model_dump(exclude_unset=True)
+    if "territory_id" in updates:
+        tid = updates.pop("territory_id")
+        p.territory_id = uuid.UUID(tid) if tid else None
+    for k, v in updates.items():
+        setattr(p, k, v)
+    db.commit(); db.refresh(p)
+    return p
+
+@router.delete("/{slug}", status_code=204)
+def delete_place(slug: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    p = db.query(Place).filter(Place.slug == slug).first()
+    if not p: raise HTTPException(status_code=404, detail="Not found")
+    db.delete(p); db.commit()
