@@ -17,6 +17,8 @@ import AdminTripBooks from './pages/admin/AdminTripBooks'
 import StoryDetail from './pages/StoryDetail'
 import PlaceDetail from './pages/PlaceDetail'
 import OperatorDetail from './pages/OperatorDetail'
+import TripBookDetail from './pages/TripBookDetail'
+import TripBookEditor from './pages/TripBookEditor'
 
 function Navbar() {
   const navigate = useNavigate()
@@ -67,6 +69,8 @@ export default function App() {
         <Route path="/stories/:slug" element={<StoryDetail />} />
         <Route path="/places/:slug" element={<PlaceDetail />} />
         <Route path="/operators/:slug" element={<OperatorDetail />} />
+        <Route path="/tripbooks/:slug" element={<TripBookDetail />} />
+        <Route path="/tripbooks/:slug/edit" element={<TripBookEditor />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
           <Route path="territories" element={<AdminTerritories />} />

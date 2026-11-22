@@ -90,6 +90,26 @@ def delete_tripbook(slug: str, db: Session = Depends(get_db), current_user=Depen
     if not tb: raise HTTPException(status_code=404, detail="Not found")
     db.delete(tb); db.commit()
 
+@router.get("/{slug}/blocks")
+def get_blocks(slug: str, db: Session = Depends(get_db), current_user=Depends(get_current_user_optional)):
+    tb = db.query(TripBook).filter(TripBook.slug == slug).first()
+    if not tb: raise HTTPException(status_code=404, detail="Not found")
+    if tb.visibility == TripBookVisibility.private:
+        if not current_user or str(current_user.id) != str(tb.owner_id):
+            raise HTTPException(status_code=403, detail="Private TripBook")
+    result = []
+    for b in tb.blocks:
+        block = {"id": str(b.id), "block_type": b.block_type, "position": b.position,
+                 "content": b.content, "media_url": b.media_url}
+        if b.linked_place:
+            block["linked_place"] = {"id": str(b.linked_place.id), "name": b.linked_place.name,
+                                     "slug": b.linked_place.slug, "place_type": b.linked_place.place_type}
+        if b.linked_operator:
+            block["linked_operator"] = {"id": str(b.linked_operator.id), "name": b.linked_operator.name,
+                                        "slug": b.linked_operator.slug, "operator_type": b.linked_operator.operator_type}
+        result.append(block)
+    return result
+
 @router.post("/{slug}/blocks", response_model=BlockOut)
 def add_block(slug: str, data: BlockIn, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     tb = db.query(TripBook).filter(TripBook.slug == slug, TripBook.owner_id == current_user.id).first()
